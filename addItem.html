@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Add Event</title>
+    <style>
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        background-color: #f4f7f9;
+        color: #333;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        justify-content: center;
+      }
+
+      .container {
+        max-width: 500px;
+        width: 90%;
+        background-color: #fff;
+        padding: 2em;
+        margin: 2em;
+        border-radius: 12px;
+        box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
+      }
+
+      h1 {
+        text-align: center;
+        margin-bottom: 1em;
+      }
+
+      fieldset {
+        border: 1px solid #ccc;
+        border-radius: 8px;
+        padding: 1em;
+        margin-bottom: 1.5em;
+      }
+
+      legend {
+        font-weight: bold;
+      }
+
+      label {
+        display: block;
+        margin: 0.5em 0;
+      }
+
+      input[type="checkbox"] {
+        margin-right: 0.5em;
+      }
+
+      input[type="time"],
+      input[type="number"],
+      select {
+        width: 100%;
+        padding: 0.5em;
+        border: 1px solid #ccc;
+        border-radius: 6px;
+        margin-top: 0.5em;
+        box-sizing: border-box;
+      }
+
+      button {
+        margin-top: 1.5em;
+        width: 100%;
+        padding: 0.7em;
+        background-color: #4a90e2;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        font-size: 1em;
+        cursor: pointer;
+        transition: background-color 0.3s ease;
+      }
+
+      button:hover {
+        background-color: #357abd;
+      }
+
+      #currentTime {
+        text-align: center;
+        margin: 1em 0;
+        font-weight: bold;
+        font-size: 1.1em;
+      }
+
+      .selectButton {
+        margin-top: 10px;
+        width: 200px;
+      }
+
+      #unselectAllBtn {
+        background-color: red;
+      }
+
+      #evenyNDay {
+        width: 100px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>Add Event</h1>
+
+      <form id="itemForm">
+        <fieldset>
+          <legend>Repeat:</legend>
+          <select>
+            <option>Every Day</option>
+            <option>Weekdays</option>
+            <option>Every (N) Day</option>
+          </select>
+          <button type="button" id="selectAllBtn" class="selectButton">
+            Select All
+          </button>
+          <button type="button" id="unselectAllBtn" class="selectButton">
+            Unselect All
+          </button>
+          <label
+            ><input type="checkbox" name="weekday" value="1" />Monday</label
+          >
+          <label
+            ><input type="checkbox" name="weekday" value="2" />Tuesday</label
+          >
+          <label
+            ><input type="checkbox" name="weekday" value="3" />Wednesday</label
+          >
+          <label
+            ><input type="checkbox" name="weekday" value="4" />Thursday</label
+          >
+          <label
+            ><input type="checkbox" name="weekday" value="5" />Friday</label
+          >
+          <label
+            ><input type="checkbox" name="weekday" value="6" />Saturday</label
+          >
+          <label
+            ><input type="checkbox" name="weekday" value="7" />Sunday</label
+          >
+          <label> Every <input type="number" id="evenyNDay" /> day </label>
+        </fieldset>
+
+        <label>
+          Time:
+          <input type="time" name="time" required />
+        </label>
+
+        <label id="storageId">
+          Storage ID:
+          <select name="storageId" required></select>
+        </label>
+
+        <label>
+          Amount:
+          <input type="number" name="amountNum" min="1" value="1" required />
+        </label>
+
+        <button type="button" onclick="submitForm()">Submit</button>
+      </form>
+    </div>
+
+    <script>
+      const numOfStorage = 5;
+
+      function syncTime() {
+        const now = new Date();
+        const formattedTime = now.toLocaleString();
+        document.getElementById("currentTime").innerText =
+          "Current Time: " + formattedTime;
+      }
+      // submit
+      document
+        .getElementById("itemForm")
+        .addEventListener("submit", function (event) {
+          event.preventDefault();
+          const form = event.target;
+          const weekdays = Array.from(
+            form.querySelectorAll('input[name="weekday"]:checked')
+          ).map((cb) => cb.value);
+          const item = {
+            weekday: weekdays,
+            time: form.time.value,
+            storageId: form.storageId.value,
+            countNum: form.countNum.value,
+          };
+          console.log("Item added:", item);
+          alert("Item added successfully!");
+          form.reset();
+        });
+
+      const selectElement = document.querySelector("#storageId select");
+      for (let i = 1; i <= numOfStorage; i++) {
+        const option = document.createElement("option");
+        option.value = i;
+        option.textContent = `Storage ${i}`;
+        selectElement.appendChild(option);
+      }
+
+      document
+        .getElementById("selectAllBtn")
+        .addEventListener("click", function () {
+          const weekdayCheckboxes = document.querySelectorAll(
+            'input[name="weekday"]'
+          );
+          weekdayCheckboxes.forEach((cb) => (cb.checked = true));
+        });
+
+      document
+        .getElementById("unselectAllBtn")
+        .addEventListener("click", function () {
+          const weekdayCheckboxes = document.querySelectorAll(
+            'input[name="weekday"]'
+          );
+          weekdayCheckboxes.forEach((cb) => (cb.checked = false));
+        });
+
+      const repeatSelect = document.querySelector("select");
+      const weekdayLabels = document.querySelectorAll(
+        'label input[name="weekday"]'
+      );
+      const selectAllBtn = document.getElementById("selectAllBtn");
+      const unselectAllBtn = document.getElementById("unselectAllBtn");
+      const everyNDayInput = document.getElementById("evenyNDay");
+
+      // Group checkbox labels
+      const weekdayContainer = [...weekdayLabels].map((cb) => cb.parentElement);
+
+      // When repeat changes
+      repeatSelect.addEventListener("change", function () {
+        const value = this.value;
+
+        if (value === "Every Day") {
+          selectAllBtn.style.display = "none";
+          unselectAllBtn.style.display = "none";
+          everyNDayInput.parentElement.style.display = "none";
+          weekdayContainer.forEach((el) => (el.style.display = "none"));
+        } else if (value === "Weekdays") {
+          selectAllBtn.style.display = "inline-block";
+          unselectAllBtn.style.display = "inline-block";
+          everyNDayInput.parentElement.style.display = "none";
+          weekdayContainer.forEach((el) => (el.style.display = "block"));
+        } else if (value === "Every (N) Day") {
+          selectAllBtn.style.display = "none";
+          unselectAllBtn.style.display = "none";
+          everyNDayInput.parentElement.style.display = "block";
+          weekdayContainer.forEach((el) => (el.style.display = "none"));
+        }
+      });
+
+      // Trigger once on load
+      repeatSelect.dispatchEvent(new Event("change"));
+
+      // Submit form
+      function submitForm() {
+        const form = document.getElementById("itemForm");
+
+        const repeatType = form.querySelector("select").value;
+        const selectedWeekdays = Array.from(
+          form.querySelectorAll('input[name="weekday"]:checked')
+        ).map((cb) => cb.value);
+        const everyNDayValue = document.getElementById("evenyNDay").value;
+        const timeValue = form.time.value;
+        const storageIdValue = form.storageId.value;
+        const amountValue = form.amountNum.value;
+
+        // Validation checks
+        if (repeatType === "Weekdays" && selectedWeekdays.length === 0) {
+          alert("Please select at least one weekday.");
+          return;
+        }
+
+        if (
+          repeatType === "Every (N) Day" &&
+          (everyNDayValue === "" || everyNDayValue <= 0)
+        ) {
+          alert("Please enter a valid number for 'Every N Day'.");
+          return;
+        }
+
+        if (!timeValue || !storageIdValue || !amountValue || amountValue <= 0) {
+          alert("Please fill in all required fields correctly.");
+          return;
+        }
+
+        // Construct data object
+        const item = {
+          Repeat: repeatType,
+          Weekdays: selectedWeekdays.join(", ") || null,
+          EveryNDays: repeatType === "Every (N) Day" ? everyNDayValue : null,
+          Time: timeValue,
+          StorageID: storageIdValue,
+          Amount: amountValue,
+        };
+
+        console.log("Item added:", item);
+        const queryString = new URLSearchParams(item).toString();
+        fetch(`/submit?${queryString}`)
+          .then((res) => res.text())
+          .then((data) => {
+            alert("Arduino says: " + data);
+            window.location.href = "/main.html";
+          })
+          .catch((err) => {
+            console.error("Error:", err);
+            alert("Failed to reach Arduino");
+          });
+
+        repeatSelect.dispatchEvent(new Event("change"));
+      }
+    </script>
+  </body>
+</html>
