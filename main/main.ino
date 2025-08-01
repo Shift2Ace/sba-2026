@@ -1,11 +1,14 @@
 #include <WiFi.h>
 #include <ArduinoJson.h>
 #include <WebServer.h>
-#include <RtcDS1307.h>
+#include <RTClib.h>
 #include <Wire.h>
+#include <LiquidCrystal_I2C.h>
+
 
 // Pin
-RtcDS1307<TwoWire> Rtc(Wire);
+RTC_DS1307 rtc;
+LiquidCrystal_I2C lcd(0x27, 16, 2);
 
 
 // *** Update the SSID and password
@@ -14,7 +17,16 @@ const char* password = "a2b3c4d5";
 
 int nextID = 1;
 
+char timeStr[9]; // HH:MM:SS
+unsigned long currentTimestamp = 0; // 
+
+int status = 0;
+// 0: Normal
+// 1: Outputing
+// 2: Wait to take
 // Set web server port to 80
+
+
 WebServer server(80);
 
 // setup data storage
@@ -325,6 +337,9 @@ const char* addEventPageHtml = R"rawliteral(
             Unselect All
           </button>
           <label
+            ><input type="checkbox" name="weekday" value="0" />Sunday</label
+          >
+          <label
             ><input type="checkbox" name="weekday" value="1" />Monday</label
           >
           <label
@@ -341,9 +356,6 @@ const char* addEventPageHtml = R"rawliteral(
           >
           <label
             ><input type="checkbox" name="weekday" value="6" />Saturday</label
-          >
-          <label
-            ><input type="checkbox" name="weekday" value="7" />Sunday</label
           >
           <label> Every <input type="number" id="evenyNDay" /> day </label>
         </fieldset>
@@ -493,7 +505,7 @@ const char* addEventPageHtml = R"rawliteral(
         // Construct data object
         const item = {
           Repeat: repeatType,
-          Weekdays: selectedWeekdays.join(", ") || null,
+          Weekdays: selectedWeekdays.join("") || null,
           EveryNDays: repeatType === "Every (N) Day" ? everyNDayValue : null,
           Time: timeValue,
           StorageID: storageIdValue,
@@ -555,7 +567,7 @@ void handleSubmit() {
   if (repeatMethod == "Weekdays"){
     repeat = weekdays;
   }else if (repeatMethod == "Every Day"){
-    repeat = "1, 2, 3, 4, 5, 6, 7";
+    repeat = "0123456";
   }else if (repeatMethod == "Every (N) Day"){
     repeat = "*" + everyNDays;
   }
@@ -577,7 +589,93 @@ void handleGetEvents() {
   server.send(200, "application/json", jsonOutput);
 }
 
+void displayTime() {
+  DateTime now = rtc.now(); 
+  sprintf(timeStr, "%02d:%02d:%02d", now.hour(), now.minute(), now.second());
+  lcd.setCursor(0, 1);
+  lcd.print(timeStr);
+}
+
+void outputMedicine(int storageNum, int amount){
+  status = 1;
+  
+  for (int i = 0; i < amount; i++) {
+    // output one Medicine
+  }
+
+}
+
+
+void notificationOn(){
+  // turn on LED
+}
+
+void notificationOff(){
+  // turn off LED
+  
+}
+
+
+
+void checkEvent(String currentTime) {
+  DateTime now = rtc.now();
+  int todayWeekday = now.dayOfTheWeek();
+  
+  for (JsonObject obj : eventDataArray) {
+    String eventTime = obj["time"].as<String>();
+    String repeat = obj["repeat"].as<String>();
+    int storageId = obj["storageId"].as<int>();
+    int amount = obj["amount"].as<int>();
+
+    // Check if time matches
+    if (eventTime == currentTime) {
+      if (repeat.startsWith("*")) {
+        // Every (N) Day logic
+        int dayCount = obj["dayCount"].as<int>();
+        if (dayCount == 0) {
+          outputMedicine(storageId, amount);
+          int newCount = repeat.substring(1).toInt(); // Get N from "*N"
+          obj["dayCount"] = newCount;
+        } else {
+          obj["dayCount"] = dayCount - 1;
+        }
+      } else {
+        // Weekday logic
+        std::vector<int> weekdays;
+        
+        for (char c : repeat) {
+          if (isdigit(c)) { 
+            weekdays.push_back(c - '0'); 
+          }
+        }
+        
+        for (int wd : weekdays) {
+          if (wd == todayWeekday) {
+            outputMedicine(storageId, amount); 
+            break; 
+          }
+        }
+      }
+    }
+  }
+  if (status == 1){
+    notificationOn();
+    status = 2;
+    // Wait user to take
+    status = 0;
+    notificationOff();
+  }
+}
+
+
 void setup() {
+  Wire.begin(21, 22); 
+
+  // LCD setup  
+  lcd.init();
+  lcd.backlight();
+
+
   Serial.begin(115200);
   
   // Connect to Wi-Fi
@@ -590,6 +688,10 @@ void setup() {
   Serial.println("\nWiFi connected.");
   Serial.println("IP address: ");
   Serial.println(WiFi.localIP());
+  
+  // Display IP address
+  lcd.setCursor(0,0);
+  lcd.print(WiFi.localIP());
 
   // Start the server
   server.on("/", handleRoot);
@@ -601,11 +703,38 @@ void setup() {
   Serial.println("HTTP server started");
 
   // Clock setup
-  Rtc.Begin();
-  Rtc.SetIsRunning(true);
+  
+  if (!rtc.begin()) {
+    Serial.println("Couldn't find RTC");
+    while (1);
+  }
+  
+  if (!rtc.isrunning()) {
+    Serial.println("RTC is NOT running!");
+  }
+
+  rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
+  currentTimestamp = rtc.now().unixtime();
 }
 
+
 void loop() {
+  // web server handling
   server.handleClient();
+  // update display clock
+  displayTime();
+  // check event
+  DateTime now = rtc.now();
+ 
+  if (currentTimestamp < now.unixtime()) {
+    currentTimestamp = currentTimestamp + 60;
+    DateTime currentTimestampDateTime(currentTimestamp);
   
+    String currentTime = String(currentTimestampDateTime.hour()).length() < 2 ? "0" + String(currentTimestampDateTime.hour()) : String(currentTimestampDateTime.hour());
+    currentTime += ":";
+    currentTime += String(currentTimestampDateTime.minute()).length() < 2 ? "0" + String(currentTimestampDateTime.minute()) : String(currentTimestampDateTime.minute());
+  
+    checkEvent(currentTime);
+  }
+
 }
