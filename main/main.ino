@@ -24,9 +24,11 @@ int status = 0;
 // 0: Normal
 // 1: Outputing
 // 2: Wait to take
+
+unsigned long lastDisplayUpdate = 0;
+const unsigned long displayInterval = 1000; // 1 second
+
 // Set web server port to 80
-
-
 WebServer server(80);
 
 // setup data storage
@@ -208,9 +210,30 @@ const char* homePageHtml = R"rawliteral(
           tableBody.appendChild(row);
         });
       }
+
+      function deleteRow(button) {
+        const row = button.closest('tr');
+        const eventId = row.children[0].innerText;
+      
+        fetch(`/delete?id=${eventId}`, { method: 'GET' })
+          .then(res => res.text())
+          .then(data => {
+            alert("Deleted: " + data);
+            fetchEvents(); // Refresh table
+          })
+          .catch(err => {
+            console.error("Delete failed:", err);
+            alert("Failed to delete event");
+          });
+      }
+
     
       // Call fetchEvents once page loads
-      window.onload = fetchEvents;
+      window.onload = () => {
+        fetchEvents();
+        setInterval(fetchEvents, 5000); // Fetch every 5 seconds
+      };
+
     </script>
   </body>
 </html>
@@ -589,9 +612,34 @@ void handleGetEvents() {
   server.send(200, "application/json", jsonOutput);
 }
 
+void handleDeleteEvent() {
+  int idToDelete = server.arg("id").toInt();
+  bool found = false;
+
+  for (size_t i = 0; i < eventDataArray.size(); i++) {
+    JsonObject obj = eventDataArray[i];
+    if (obj["id"].as<int>() == idToDelete) {
+      eventDataArray.remove(i);
+      found = true;
+      break;
+    }
+  }
+
+  if (found) {
+    server.send(200, "text/plain", "Event deleted");
+  } else {
+    server.send(404, "text/plain", "Event not found");
+  }
+}
+
+
 void displayTime() {
   DateTime now = rtc.now(); 
   sprintf(timeStr, "%02d:%02d:%02d", now.hour(), now.minute(), now.second());
+
+  Serial.print("Time: ");
+  Serial.println(timeStr);
+
   lcd.setCursor(0, 1);
   lcd.print(timeStr);
 }
@@ -601,6 +649,7 @@ void outputMedicine(int storageNum, int amount){
   
   for (int i = 0; i < amount; i++) {
     // output one Medicine
+    Serial.println("Output one medicine");
   }
 
 }
@@ -615,6 +664,22 @@ void notificationOff(){
   
 }
 
+void checkEventTask(void *parameter) {
+  while (true) {
+    DateTime now = rtc.now();
+    if (currentTimestamp < now.unixtime()) {
+      currentTimestamp += 60;
+      DateTime currentTimestampDateTime(currentTimestamp);
+
+      String currentTime = String(currentTimestampDateTime.hour()).length() < 2 ? "0" + String(currentTimestampDateTime.hour()) : String(currentTimestampDateTime.hour());
+      currentTime += ":";
+      currentTime += String(currentTimestampDateTime.minute()).length() < 2 ? "0" + String(currentTimestampDateTime.minute()) : String(currentTimestampDateTime.minute());
+      Serial.println("Check Event (" + currentTime + ")");
+      checkEvent(currentTime);
+    }
+    vTaskDelay(1000 / portTICK_PERIOD_MS); // Delay to prevent CPU hogging
+  }
+}
 
 
 void checkEvent(String currentTime) {
@@ -633,6 +698,7 @@ void checkEvent(String currentTime) {
         // Every (N) Day logic
         int dayCount = obj["dayCount"].as<int>();
         if (dayCount == 0) {
+          Serial.println("Output Medicine (SID: " + String(storageId) + "Amount: " + String(amount) + ")");
           outputMedicine(storageId, amount);
           int newCount = repeat.substring(1).toInt(); // Get N from "*N"
           obj["dayCount"] = newCount;
@@ -651,6 +717,7 @@ void checkEvent(String currentTime) {
         
         for (int wd : weekdays) {
           if (wd == todayWeekday) {
+            Serial.println("Output Medicine (SID: " + String(storageId) + "Amount: " + String(amount) + ")");
             outputMedicine(storageId, amount); 
             break; 
           }
@@ -662,6 +729,9 @@ void checkEvent(String currentTime) {
     notificationOn();
     status = 2;
     // Wait user to take
+    Serial.println("Waiting for user");
+    delay(1000);
+    Serial.println("User took");
     status = 0;
     notificationOff();
   }
@@ -669,9 +739,11 @@ void checkEvent(String currentTime) {
 
 
 void setup() {
+  Serial.println("Program start");
   Wire.begin(21, 22); 
 
   // LCD setup  
+  Serial.println("LCD init");
   lcd.init();
   lcd.backlight();
 
@@ -679,6 +751,7 @@ void setup() {
   Serial.begin(115200);
   
   // Connect to Wi-Fi
+  Serial.println("Connecting WiFi");
   WiFi.begin(ssid, password);
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
@@ -686,7 +759,7 @@ void setup() {
   }
 
   Serial.println("\nWiFi connected.");
-  Serial.println("IP address: ");
+  Serial.print("IP address: ");
   Serial.println(WiFi.localIP());
   
   // Display IP address
@@ -698,6 +771,8 @@ void setup() {
   server.on("/addEvent", handleAddEvent);
   server.on("/submit", handleSubmit);
   server.on("/events", handleGetEvents);
+  server.on("/delete", handleDeleteEvent);
+
 
   server.begin();
   Serial.println("HTTP server started");
@@ -712,9 +787,22 @@ void setup() {
   if (!rtc.isrunning()) {
     Serial.println("RTC is NOT running!");
   }
+  Serial.println("Clock reset");
 
   rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
   currentTimestamp = rtc.now().unixtime();
+  Serial.println("Current Timestamp: " + String(currentTimestamp));
+  Serial.println("Check Event Task start");
+  xTaskCreatePinnedToCore(
+    checkEventTask,     // Task function
+    "CheckEventTask",   // Name
+    4096,               // Stack size
+    NULL,               // Parameters
+    1,                  // Priority
+    NULL,               // Task handle
+    1                   // Core (0 or 1)
+  );
+  Serial.println("Setup() done");
 }
 
 
@@ -722,19 +810,11 @@ void loop() {
   // web server handling
   server.handleClient();
   // update display clock
-  displayTime();
-  // check event
-  DateTime now = rtc.now();
- 
-  if (currentTimestamp < now.unixtime()) {
-    currentTimestamp = currentTimestamp + 60;
-    DateTime currentTimestampDateTime(currentTimestamp);
   
-    String currentTime = String(currentTimestampDateTime.hour()).length() < 2 ? "0" + String(currentTimestampDateTime.hour()) : String(currentTimestampDateTime.hour());
-    currentTime += ":";
-    currentTime += String(currentTimestampDateTime.minute()).length() < 2 ? "0" + String(currentTimestampDateTime.minute()) : String(currentTimestampDateTime.minute());
-  
-    checkEvent(currentTime);
+  unsigned long currentMillis = millis();
+  if (currentMillis - lastDisplayUpdate >= displayInterval) {
+    lastDisplayUpdate = currentMillis;
+    displayTime();
   }
 
 }
