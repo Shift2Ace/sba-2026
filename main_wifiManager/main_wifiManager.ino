@@ -158,9 +158,6 @@ const char* homePageHtml = R"rawliteral(
       >
         <div class="clock-bar">
           <div id="currentTime">Current Time: --</div>
-          <button class="clock-btn" onclick="onClockButtonClick()">
-            Sync Events
-          </button>
         </div>
       </div>
       <a href="/addEvent" class="btn">Add Event</a>
@@ -650,7 +647,7 @@ void outputMedicine(int storageNum, int amount){
   status = 1;
   
   for (int i = 0; i < amount; i++) {
-    // output one Medicine
+    // todo output one Medicine
     Serial.println("Output one medicine");
   }
 
@@ -658,12 +655,11 @@ void outputMedicine(int storageNum, int amount){
 
 
 void notificationOn(){
-  // turn on LED
+  // todo e.g. turn on LED
 }
 
 void notificationOff(){
-  // turn off LED
-  
+  // todo e.g. turn off LED
 }
 
 void checkEventTask(void *parameter) {
@@ -730,9 +726,8 @@ void checkEvent(String currentTime) {
   if (status == 1){
     notificationOn();
     status = 2;
-    // Wait user to take
     Serial.println("Waiting for user");
-    delay(5000);
+    // todo Wait and detect user to take
     Serial.println("User took");
     status = 0;
     notificationOff();
