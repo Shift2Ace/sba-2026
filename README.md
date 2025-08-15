@@ -6,13 +6,13 @@ This project is a smart medicine dispenser powered by an ESP32 microcontroller. 
 
 ## 📁 Table of Contents
 
-- [Features](#features)
-- [Hardware Requirements](#hardware-requirements)
-- [Libraries Used](#libraries-used)
-- [Program Guidelines](#program-guidelines)
-- [User Guidelines](#user-guidelines)
-- [Web Interface Overview](#web-interface-overview)
-- [Future Improvements](#future-improvements)
+- [Features](#-features)
+- [Hardware Requirements](#-hardware-requirements)
+- [Libraries Used](#-libraries-used)
+- [Program Guidelines](#-program-guidelines)
+- [User Guidelines](#-user-guidelines)
+- [Web Interface Overview](#-web-interface-overview)
+- [Future Improvements](#-future-improvements)
 
 ---
 
@@ -148,13 +148,13 @@ Make sure to install these libraries via the Arduino Library Manager:
 
 ## 📁 目錄
 
-- [功能特色](#功能特色)
-- [硬體需求](#硬體需求)
-- [使用的函式庫](#使用的函式庫)
-- [程式指南](#程式指南)
-- [使用者指南](#使用者指南)
-- [網頁介面概覽](#網頁介面概覽)
-- [未來改進](#未來改進)
+- [功能特色](#-功能特色)
+- [硬體需求](#-硬體需求)
+- [使用的函式庫](#-使用的函式庫)
+- [程式指南](#-程式指南)
+- [使用者指南](#-使用者指南)
+- [網頁介面概覽](#-網頁介面概覽)
+- [未來改進](#-未來改進)
 
 ---
 
