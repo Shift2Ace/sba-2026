@@ -5,6 +5,8 @@
 #include <Wire.h>
 #include <LiquidCrystal_I2C.h>
 #include <WiFiManager.h>
+#include <time.h> // Required for NTP
+
 
 
 // Pin
@@ -640,6 +642,8 @@ void displayTime() {
 
   lcd.setCursor(0, 1);
   lcd.print(timeStr);
+  lcd.setCursor(8, 1);
+  lcd.print("   ");
 }
 
 void outputMedicine(int storageNum, int amount){
@@ -728,7 +732,7 @@ void checkEvent(String currentTime) {
     status = 2;
     // Wait user to take
     Serial.println("Waiting for user");
-    delay(1000);
+    delay(5000);
     Serial.println("User took");
     status = 0;
     notificationOff();
@@ -736,28 +740,56 @@ void checkEvent(String currentTime) {
 }
 
 
+void syncRTCWithNTP() {
+  configTime(28800, 0, "pool.ntp.org", "time.nist.gov"); // HKT = UTC+8
+
+  struct tm timeinfo;
+  if (!getLocalTime(&timeinfo)) {
+    Serial.println("Failed to obtain time from NTP");
+    return;
+  }
+
+  // Convert tm to DateTime and set RTC
+  rtc.adjust(DateTime(
+    timeinfo.tm_year + 1900,
+    timeinfo.tm_mon + 1,
+    timeinfo.tm_mday,
+    timeinfo.tm_hour,
+    timeinfo.tm_min,
+    timeinfo.tm_sec
+  ));
+
+  Serial.println("RTC synced with NTP");
+}
+
+
+
 void setup() {
+  Serial.begin(115200);
+  Serial.println("Program Start");
   pinMode(RESET_PIN, INPUT_PULLUP);
+  Wire.begin(21, 22);
+  // LCD setup  
+  lcd.init();
+  lcd.backlight();
   if (digitalRead(RESET_PIN) == LOW) {
+    Serial.println("WiFi Setting mode");
+    
     WiFiManager wifiManager;
     wifiManager.resetSettings(); // Clear saved credentials
     ESP.restart(); // Restart device
   }
-
-  Serial.begin(115200);
-  Wire.begin(21, 22); 
-
-  // LCD setup  
-  lcd.init();
-  lcd.backlight();
+  lcd.setCursor(0, 0);
+  lcd.print("WiFi Setting");
 
   // Create WiFiManager object
   WiFiManager wifiManager;
+  
 
   // Automatically connect using saved credentials,
   // or start AP mode if none are saved
   wifiManager.autoConnect("MedicineDispenserAP");
-
+  lcd.clear();
   Serial.println("Connected to WiFi!");
   Serial.println(WiFi.localIP());
 
@@ -783,7 +815,7 @@ void setup() {
     Serial.println("RTC is NOT running!");
   }
 
-  rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
+  syncRTCWithNTP();
   currentTimestamp = rtc.now().unixtime();
 
   // Start event checking task
