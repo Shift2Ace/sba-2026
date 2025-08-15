@@ -44,6 +44,17 @@
 ### 2. 使用者提示與感應
 請在 `notificationOn()` 和 `notificationOff()` 中加入 LED 或蜂鳴器控制程式碼。
 可擴充感應器偵測使用者是否已取藥。
+```
+if (status == 1){
+    notificationOn();
+    status = 2;
+    Serial.println("Waiting for user");
+    // todo Wait and detect user to take
+    Serial.println("User took");
+    status = 0;
+    notificationOff();
+  }
+```
 
 ### 3. 儲存資料持久化
 目前事件資料儲存在記憶體中，若需斷電保存，請整合 SPIFFS 或 EEPROM。
